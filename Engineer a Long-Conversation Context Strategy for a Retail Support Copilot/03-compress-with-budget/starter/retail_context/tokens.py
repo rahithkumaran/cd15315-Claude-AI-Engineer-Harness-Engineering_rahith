@@ -27,29 +27,31 @@ _CHARS_PER_TOKEN = 3.8
 
 
 def methodology() -> str:
-    # TODO (Exercise 3): Return the string naming the currently active path.
-    # When ANTHROPIC_API_KEY is set, return:
-    #     "Anthropic messages.count_tokens endpoint (model-authoritative)"
-    # otherwise return:
-    #     f"len(text) / {_CHARS_PER_TOKEN} heuristic (no API key available)"
-    # The returned string is written verbatim into budget.json so reviewers can
-    # interpret the per-section numbers without re-deriving the algorithm.
-    return f"len(text) / {_CHARS_PER_TOKEN} heuristic (stub — Exercise 3 adds the SDK dispatch)"
+    """Return the string naming the currently active token-counting methodology."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "Anthropic messages.count_tokens endpoint (model-authoritative)"
+    return f"len(text) / {_CHARS_PER_TOKEN} heuristic (no API key available)"
 
 
 @lru_cache(maxsize=4096)
 def count(text: str) -> int:
+    """Count tokens in text using SDK endpoint or heuristic fallback."""
     if not text:
         return 0
-    # TODO (Exercise 3): When ANTHROPIC_API_KEY is set, route the request through
-    # the SDK's `messages.count_tokens` endpoint:
-    #     resp = get_client().messages.count_tokens(
-    #         model=get_model(),
-    #         messages=[{"role": "user", "content": text}],
-    #     )
-    #     return int(resp.input_tokens)
-    # When the key is not set, fall back to the heuristic below. The cap of 1
-    # is intentional — a non-empty string never reports 0 tokens.
+
+    # Use SDK if API key is available
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        try:
+            resp = get_client().messages.count_tokens(
+                model=get_model(),
+                messages=[{"role": "user", "content": text}],
+            )
+            return int(resp.input_tokens)
+        except Exception:
+            # Fall back to heuristic on any error
+            pass
+
+    # Heuristic fallback: cap at 1 minimum for non-empty text
     return max(1, int(len(text) / _CHARS_PER_TOKEN))
 
 

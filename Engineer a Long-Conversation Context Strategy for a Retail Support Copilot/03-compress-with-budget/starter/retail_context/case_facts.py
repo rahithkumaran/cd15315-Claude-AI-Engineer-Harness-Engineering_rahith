@@ -12,7 +12,7 @@ null-fill is forbidden.
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -51,25 +51,26 @@ class CaseFacts:
     payment_update_status: str
 
     def to_markdown(self) -> str:
-        return (
-            "# Case Facts\n\n"
-            "**Customer.**\n"
-            f"- `customer_id`: {self.customer_id}\n\n"
-            "**Refund (resolved).**\n"
-            f"- `refund_order_id`: {self.refund_order_id}\n"
-            f"- `refund_amount_usd`: ${self.refund_amount_usd:.2f}\n"
-            f"- `refund_status`: {self.refund_status}\n\n"
-            "**Subscription (resolved).**\n"
-            f"- `subscription_id`: {self.subscription_id}\n"
-            f"- `subscription_plan`: {self.subscription_plan}\n"
-            f"- `subscription_cancel_reason`: {self.subscription_cancel_reason}\n"
-            f"- `subscription_status`: {self.subscription_status}\n\n"
-            "**Payment update (active).**\n"
-            f"- `active_payment_method_last4`: {self.active_payment_method_last4}\n"
-            f"- `new_payment_method_last4`: {self.new_payment_method_last4}\n"
-            f"- `payment_update_failure_code`: {self.payment_update_failure_code}\n"
-            f"- `payment_update_status`: {self.payment_update_status}\n"
-        )
+        """Render the 12-field case facts block as Markdown."""
+        lines = ["# Case Facts", ""]
+
+        lines.append("**Customer:** " + self.customer_id)
+        lines.append("")
+
+        lines.append("**Refund (resolved):** Order " + self.refund_order_id +
+                    f" — ${self.refund_amount_usd:.2f} — " + self.refund_status)
+        lines.append("")
+
+        lines.append("**Subscription (resolved):** " + self.subscription_plan +
+                    " (" + self.subscription_id + ") — Cancelled: " +
+                    self.subscription_cancel_reason + " — " + self.subscription_status)
+        lines.append("")
+
+        lines.append("**Payment update (active):** " + self.active_payment_method_last4 +
+                    " → " + self.new_payment_method_last4 + " — " +
+                    self.payment_update_failure_code + " — " + self.payment_update_status)
+
+        return "\n".join(lines)
 
 
 class CaseFactExtractionError(ValueError):
@@ -79,34 +80,27 @@ class CaseFactExtractionError(ValueError):
         self.raw = raw
 
 
-_SYSTEM_PROMPT = """You are extracting structured transactional facts from a long customer-support
-transcript. The transcript spans three issues for the same customer at the fictional
-retailer "Pantry Plus": a refund inquiry (resolved), a subscription cancellation
-(resolved), and an in-progress payment-method update (active).
+_SYSTEM_PROMPT = """Extract the following 12 fields from the customer support transcript into a strict JSON object.
 
-Return ONE JSON object with EXACTLY these keys and types:
+**Extraction rules:**
+1. Return ONLY a JSON object with exactly these 12 keys (no prose, markdown, or code fences):
+   - customer_id (string: customer identifier)
+   - refund_order_id (string: order identifier)
+   - refund_amount_usd (number: refund amount)
+   - refund_status (string: one of "processed", "pending", "denied", or "in_progress")
+   - subscription_id (string: subscription identifier)
+   - subscription_plan (string: subscription plan name)
+   - subscription_cancel_reason (string: reason for cancellation)
+   - subscription_status (string: one of "active", "cancelled", "cancelled_with_prorated_refund", etc.)
+   - active_payment_method_last4 (string: zero-padded 4-digit card number)
+   - new_payment_method_last4 (string: zero-padded 4-digit card number)
+   - payment_update_failure_code (string: error code like "AVS_MISMATCH" or "TIMEOUT")
+   - payment_update_status (string: one of "in_progress", "failed", "success", etc.)
 
-  customer_id                  : string         (e.g., "CUST-88421")
-  refund_order_id              : string         (e.g., "ORD-77310")
-  refund_amount_usd            : number         (e.g., 48.99 — numeric, not "$48.99")
-  refund_status                : string         (e.g., "processed")
-  subscription_id              : string         (e.g., "SUB-22119")
-  subscription_plan            : string         (e.g., "Pantry Plus Monthly")
-  subscription_cancel_reason   : string         (e.g., "duplicate_charge")
-  subscription_status          : string         (e.g., "cancelled_with_prorated_refund")
-  active_payment_method_last4  : string         (e.g., "4242" — keep leading zeros if any)
-  new_payment_method_last4     : string         (e.g., "7782")
-  payment_update_failure_code  : string         (e.g., "AVS_MISMATCH")
-  payment_update_status        : string         (e.g., "in_progress")
-
-Rules:
-- Every field is required. If a field cannot be located in the transcript, set it to
-  the JSON value null — DO NOT invent.
-- Preserve identifiers verbatim. Preserve `last4` values as zero-padded strings.
-- Preserve status tokens verbatim (snake_case strings exactly as they appear in the
-  transcript or system).
-- `refund_amount_usd` is a number (48.99), not a string. Strip "$".
-- Output ONLY the JSON object. No prose, no markdown, no code fences."""
+2. Preserve all status tokens and identifiers EXACTLY as they appear in the transcript.
+3. For numeric amounts, use the actual number (e.g., 22.14, not "22.14").
+4. If a field is not mentioned in the transcript, use null (do NOT invent or guess).
+5. Output is ONLY the JSON object, no additional text."""
 
 
 def _parse_json(raw: str) -> dict[str, Any]:
@@ -124,45 +118,51 @@ def extract(
     model: str | None = None,
     log_path: Path | None = None,
 ) -> CaseFacts:
-    user = f"Transcript:\n\n{transcript.full_text}"
-    text, in_tok, out_tok = complete_with_system(
-        _SYSTEM_PROMPT, user, model=model, max_tokens=2048
+    """Extract 12 case facts from the transcript via LLM call."""
+    # Build user message
+    user_message = f"Transcript:\n\n{transcript.full_text}"
+
+    # Call complete_with_system
+    response_text, input_tokens, output_tokens = complete_with_system(
+        _SYSTEM_PROMPT, user_message, model=model, max_tokens=2048
     )
-    raw = _parse_json(text)
 
-    if log_path is not None:
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        log_path.write_text(
-            json.dumps(
-                {
-                    "model": model or get_model(),
-                    "input_tokens": in_tok,
-                    "output_tokens": out_tok,
-                    "raw_output": raw,
-                },
-                indent=2,
-            )
-        )
+    # Parse JSON response
+    parsed = _parse_json(response_text)
 
+    # Log if requested
+    if log_path:
+        log_data = {
+            "model": model or get_model(),
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "extracted": parsed,
+        }
+        log_path.write_text(json.dumps(log_data, indent=2))
+
+    # Validate all required fields are present and non-empty
     missing = [
-        f for f in REQUIRED_FIELDS if f not in raw or raw[f] is None or raw[f] == ""
+        field
+        for field in REQUIRED_FIELDS
+        if field not in parsed or parsed[field] is None or parsed[field] == ""
     ]
     if missing:
-        raise CaseFactExtractionError(missing=missing, raw=raw)
+        raise CaseFactExtractionError(missing=missing, raw=parsed)
 
+    # Construct and return CaseFacts with proper type casting
     return CaseFacts(
-        customer_id=str(raw["customer_id"]),
-        refund_order_id=str(raw["refund_order_id"]),
-        refund_amount_usd=float(raw["refund_amount_usd"]),
-        refund_status=str(raw["refund_status"]),
-        subscription_id=str(raw["subscription_id"]),
-        subscription_plan=str(raw["subscription_plan"]),
-        subscription_cancel_reason=str(raw["subscription_cancel_reason"]),
-        subscription_status=str(raw["subscription_status"]),
-        active_payment_method_last4=str(raw["active_payment_method_last4"]),
-        new_payment_method_last4=str(raw["new_payment_method_last4"]),
-        payment_update_failure_code=str(raw["payment_update_failure_code"]),
-        payment_update_status=str(raw["payment_update_status"]),
+        customer_id=str(parsed["customer_id"]),
+        refund_order_id=str(parsed["refund_order_id"]),
+        refund_amount_usd=float(parsed["refund_amount_usd"]),
+        refund_status=str(parsed["refund_status"]),
+        subscription_id=str(parsed["subscription_id"]),
+        subscription_plan=str(parsed["subscription_plan"]),
+        subscription_cancel_reason=str(parsed["subscription_cancel_reason"]),
+        subscription_status=str(parsed["subscription_status"]),
+        active_payment_method_last4=str(parsed["active_payment_method_last4"]),
+        new_payment_method_last4=str(parsed["new_payment_method_last4"]),
+        payment_update_failure_code=str(parsed["payment_update_failure_code"]),
+        payment_update_status=str(parsed["payment_update_status"]),
     )
 
 

@@ -1,6 +1,6 @@
 """Canonical token counting for the retail_context project.
 
-Methodology — two paths, identical interface:
+Methodology — two paths planned:
 
 1. **SDK path (preferred)** — Anthropic `messages.count_tokens` endpoint
    (model-authoritative). Active when `ANTHROPIC_API_KEY` is set.
@@ -13,6 +13,8 @@ Tokenization specifics are out of scope, so the choice of algorithm does not
 matter here. What matters is that *every* measurement in this
 project flows through this single function. The active methodology is recorded
 in `runs/<run_id>/budget.json` so the reviewer can interpret the numbers.
+
+The current build only implements the heuristic path. Exercise 3 expands it.
 """
 from __future__ import annotations
 
@@ -25,6 +27,7 @@ _CHARS_PER_TOKEN = 3.8
 
 
 def methodology() -> str:
+    """Return the string naming the currently active token-counting methodology."""
     if os.environ.get("ANTHROPIC_API_KEY"):
         return "Anthropic messages.count_tokens endpoint (model-authoritative)"
     return f"len(text) / {_CHARS_PER_TOKEN} heuristic (no API key available)"
@@ -32,14 +35,23 @@ def methodology() -> str:
 
 @lru_cache(maxsize=4096)
 def count(text: str) -> int:
+    """Count tokens in text using SDK endpoint or heuristic fallback."""
     if not text:
         return 0
+
+    # Use SDK if API key is available
     if os.environ.get("ANTHROPIC_API_KEY"):
-        resp = get_client().messages.count_tokens(
-            model=get_model(),
-            messages=[{"role": "user", "content": text}],
-        )
-        return int(resp.input_tokens)
+        try:
+            resp = get_client().messages.count_tokens(
+                model=get_model(),
+                messages=[{"role": "user", "content": text}],
+            )
+            return int(resp.input_tokens)
+        except Exception:
+            # Fall back to heuristic on any error
+            pass
+
+    # Heuristic fallback: cap at 1 minimum for non-empty text
     return max(1, int(len(text) / _CHARS_PER_TOKEN))
 
 

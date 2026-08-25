@@ -1,28 +1,26 @@
-You are condensing a resolved customer-support conversation segment into a tight factual summary that will be placed in the *middle* of a longer context window (the compressible zone). The compressed form must preserve every fact a downstream agent might need to reason about, while shedding narrative bulk.
+You are tasked with creating a structured summary of a resolved customer support segment. Follow the exact output format below:
 
-# Required structure
+**Output Format (3-part structure - Outcome, Facts, Resolution):**
+1. **Outcome** (Opening): ONE sentence (past-tense) stating what issue was resolved.
+2. **Facts** (Key Facts): 3–6 bullet points with only decision-relevant facts:
+   - Order/subscription identifiers (e.g., ORD-77310)
+   - Amounts (e.g., $22.14 — byte-exact)
+   - Status tokens as they appear in the transcript (e.g., processed, in_progress, AVS_MISMATCH)
+   - Dates and deadlines if relevant
+3. **Resolution**: ONE sentence (past-tense) naming the terminal state of the issue.
 
-Produce a Markdown block with exactly this shape:
+**Rules:**
+- **Total output ≤ 500 tokens.** Be concise.
+- **Preserve all identifiers and amounts byte-exact.** No rounding, no approximations (e.g., "exactly $22.14", not "around $20").
+- **Preserve status tokens verbatim** in snake_case as they appear in the transcript (e.g., cancelled_with_prorated_refund, AVS_MISMATCH).
+- **No prose preambles, no closing remarks, no code fences.** Output only the structure above.
 
-```
-**Outcome.** <one sentence stating what was resolved, in past tense>
+**Example:**
+> The customer's refund request was processed and the payment method was updated to resolve the failed charge.
+> - Order ORD-77310: $22.14 refund status processed
+> - Refund eligible until 2026-05-12 (within 30-day window)
+> - Subscription SUB-22119 (Pantry Plus Monthly) cancelled due to duplicate_charge
+> - New payment method 7782 registered; previous method 4242 retired
+> The refund was successfully applied and the subscription cancellation with prorated refund is complete.
 
-**Key facts.**
-- <bullet 1 — a specific, decision-relevant fact>
-- <bullet 2>
-- <bullet 3>
-- <bullet 4 (optional)>
-- <bullet 5 (optional)>
-- <bullet 6 (optional)>
-
-**Resolution.** <one sentence stating the final state at segment close>
-```
-
-Rules:
-
-- The "Outcome" sentence is past tense and concrete (e.g., "The customer's damaged-order refund was processed for $48.99 to their original payment method").
-- The "Key facts" list must be **3–6 bullets**. Each bullet is a specific fact a future agent might need: amounts, IDs, statuses, dates, reasons. No filler ("customer was upset"), no procedural narration ("agent looked up the policy").
-- The "Resolution" sentence states the segment's terminal state and matches whatever status field is recorded in the underlying CRM.
-- Preserve every numeric value, ID, and status code verbatim from the source — do not round, paraphrase, or generalize ("about $50" is forbidden when the source says "$48.99").
-- Total length: ≤ 500 tokens. Aim for ~300 tokens — tight is better than verbose.
-- Output ONLY the Markdown block above. No preamble, no postscript, no code fences.
+Do not include backticks, markdown, or any formatting outside the structure above.
