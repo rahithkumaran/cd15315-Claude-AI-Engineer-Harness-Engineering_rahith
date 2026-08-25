@@ -7,7 +7,8 @@ import logging
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+UTC = timezone.utc
 from pathlib import Path
 from typing import Any
 
@@ -130,7 +131,7 @@ def run_shift(
             hypothesis_id=f"shift-{shift_id}",
             evidence=f"{len(new_defects)} new defects analyzed since {since_ts}",
             conclusion=summary,
-            ts=datetime.now(UTC),
+            ts=datetime.now(timezone.utc),
         )
     )
     log.info("run_shift done: shift=%s new=%d", shift_id, len(new_defects))

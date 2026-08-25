@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 import pytest
+
+UTC = timezone.utc
 
 from shift_monitor import recovery
 from shift_monitor.invocation import resumed
