@@ -55,7 +55,7 @@ def test_ac_01_03_no_dangling_imports(repo_root: Path) -> None:
 
 def test_ac_01_04_claude_md_under_200_lines(repo_root: Path) -> None:
     """Root CLAUDE.md is under 200 lines (modular, not monolithic)."""
-    line_count = sum(1 for _ in (repo_root / "CLAUDE.md").open())
+    line_count = sum(1 for _ in (repo_root / "CLAUDE.md").open(encoding="utf-8"))
     assert line_count < 200, f"CLAUDE.md has {line_count} lines; modular target is <200"
 
 

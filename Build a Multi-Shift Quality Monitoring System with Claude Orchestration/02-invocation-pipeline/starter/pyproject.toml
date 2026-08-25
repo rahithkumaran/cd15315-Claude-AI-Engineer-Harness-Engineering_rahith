@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "shift-monitor"
 version = "0.1.0"
 description = "Layer 3 orchestration for multi-shift quality monitoring with tiered hot/warm/cold state, crash-recovery manifests, and fork-and-scratchpad investigation."
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
   "anthropic>=0.40",
   "pydantic>=2.6",

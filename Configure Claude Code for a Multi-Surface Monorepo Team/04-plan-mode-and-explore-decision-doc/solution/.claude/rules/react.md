@@ -1,6 +1,6 @@
 ---
 description: Conventions for React components and pages
-paths:
+glob:
   - "src/components/**/*"
   - "src/pages/**/*"
 ---

@@ -1,6 +1,6 @@
 ---
 description: Conventions for test files (co-located *.test.ts and *.test.tsx)
-paths:
+glob:
   - "**/*.test.tsx"
   - "**/*.test.ts"
 ---

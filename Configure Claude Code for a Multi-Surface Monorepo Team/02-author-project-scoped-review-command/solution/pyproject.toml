@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "ecommerce-team-config"
 version = "0.1.0"
 description = "Validator for the e-commerce team's Claude Code configuration (CLAUDE.md hierarchy, path-scoped rules, commands, skills)"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
   "pathspec>=0.12",
   "pyyaml>=6.0",

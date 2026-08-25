@@ -1,6 +1,6 @@
 ---
 description: Conventions for Node.js API handlers
-paths:
+glob:
   - "src/api/**/*"
 ---
 
