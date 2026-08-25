@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
-from typing import Self
+from typing_extensions import Self
 
 from pydantic import BaseModel, ConfigDict, Field
 

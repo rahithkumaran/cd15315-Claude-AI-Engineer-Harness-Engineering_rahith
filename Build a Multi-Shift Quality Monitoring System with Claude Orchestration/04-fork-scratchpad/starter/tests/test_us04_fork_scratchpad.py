@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
+
+UTC = timezone.utc
 
 from shift_monitor import fork
 from shift_monitor.scratchpad import Scratchpad, ScratchpadEntry
