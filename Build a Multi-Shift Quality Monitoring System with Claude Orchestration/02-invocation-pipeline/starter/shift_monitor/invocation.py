@@ -23,24 +23,55 @@ class Invocation:
 
 
 def thin(prompt: str) -> Invocation:
-    # TODO: Return an Invocation with shape="thin" and the prompt unchanged.
-    # The thin shape is for one-shot calls that don't need any project state.
-    raise NotImplementedError
+    return Invocation(shape="thin", prompt=prompt)
 
 
 def rich(
     role: str, hot_state: HotState, new_defects: Sequence[Mapping[str, Any]]
 ) -> Invocation:
-    # TODO: Build a rich prompt that includes:
-    #   - A one-line role framing ("You are the on-call {role} for Northridge Plant 3.")
-    #   - A "## Current hot state" section listing recent_defect_hashes,
-    #     current_shift_summary, active_alerts, threshold_statuses.
-    #   - A "## New defects since last shift" section enumerating each new defect
-    #     (id / ts / shift / component / severity / description).
-    #   - A trailing instruction asking for: Summary, Findings, Recommended
-    #     actions, and an Updated hot state proposal as a JSON block.
-    # Return an Invocation with shape="rich" and the rendered prompt.
-    raise NotImplementedError
+    lines = [
+        f"You are the on-call {role} for Northridge Plant 3.",
+        "",
+        "## Current hot state",
+        "",
+        f"Recent defect hashes: {hot_state.recent_defect_hashes}",
+        f"Current shift summary: {hot_state.current_shift_summary or '(none)'}",
+        f"Active alerts: {hot_state.active_alerts or '(none)'}",
+        f"Threshold statuses: {hot_state.threshold_statuses or '(none)'}",
+        "",
+        "## New defects since last shift",
+        "",
+    ]
+
+    if new_defects:
+        for d in new_defects:
+            lines.append(
+                f"- {d['id']} ({d['ts']}, shift {d['shift']}): "
+                f"{d['component']} / {d['severity']} — {d['description']}"
+            )
+    else:
+        lines.append("- (none)")
+
+    lines.extend(
+        [
+            "",
+            "## Your analysis",
+            "",
+            "Please provide:",
+            "- **Summary**: One-line summary of the situation.",
+            "- **Findings**: Key observations from the new defects and trends.",
+            "- **Recommended actions**: What should the quality team focus on?",
+            "- **Updated hot state**: Propose an updated JSON representation of the hot state for the next shift.",
+            "",
+            "Format the updated hot state as a JSON block:",
+            "```json",
+            "{ \"current_shift_summary\": \"...\", \"active_alerts\": [...], \"threshold_statuses\": {...} }",
+            "```",
+        ]
+    )
+
+    prompt = "\n".join(lines)
+    return Invocation(shape="rich", prompt=prompt)
 
 
 def resumed(
@@ -50,12 +81,48 @@ def resumed(
     prior_steps: Sequence[Mapping[str, Any]],
     new_defects: Sequence[Mapping[str, Any]],
 ) -> Invocation:
-    # TODO: Build a resumed prompt with three required sections:
-    #   - "## Prior partial findings" — one line per prior step, showing its
-    #     `name` and a truncated representation of its `payload`.
-    #   - "## Prior summary" — the supplied summary string.
-    #   - "## New defects since last partial step" — enumerate new_defects
-    #     (id / ts / component / severity / description), or "- (none)" if empty.
-    # Close with the latest_message under "## Latest instruction".
-    # Return an Invocation with shape="resumed".
-    raise NotImplementedError
+    lines = [
+        "## Prior partial findings",
+        "",
+    ]
+
+    if prior_steps:
+        for step in prior_steps:
+            name = step.get("name", "unknown")
+            payload = step.get("payload", "")
+            truncated = (payload[:100] + "...") if len(str(payload)) > 100 else str(payload)
+            lines.append(f"- {name}: {truncated}")
+    else:
+        lines.append("- (none)")
+
+    lines.extend(
+        [
+            "",
+            "## Prior summary",
+            "",
+            summary,
+            "",
+            "## New defects since last partial step",
+            "",
+        ]
+    )
+
+    if new_defects:
+        for d in new_defects:
+            lines.append(
+                f"- {d['id']} ({d['ts']}): {d['component']} / {d['severity']} — {d['description']}"
+            )
+    else:
+        lines.append("- (none)")
+
+    lines.extend(
+        [
+            "",
+            "## Latest instruction",
+            "",
+            latest_message,
+        ]
+    )
+
+    prompt = "\n".join(lines)
+    return Invocation(shape="resumed", prompt=prompt)

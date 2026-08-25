@@ -6,7 +6,7 @@ import argparse
 import json
 import logging
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from . import pipeline
@@ -16,7 +16,7 @@ from .warm import WarmStore
 
 
 def _default_since() -> str:
-    return (datetime.now(UTC) - timedelta(hours=8)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return (datetime.now(timezone.utc) - timedelta(hours=8)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _build_client(recorded_path: Path | None) -> ClaudeClient:
