@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "retail_context"
 version = "0.2.0"
 description = "Module 2 solution — Retail Customer Support Context Strategy"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
     "anthropic==0.69.0",
 ]
